@@ -15,6 +15,7 @@ import BottomTabNavigator from './src/Navigation/BottomTap';
 import LoginScreen from './src/Screens/LoginScreen';
 import WelcomeScreen from './src/Screens/WelcomeScreen';
 import AppointmentDetailsScreen from './src/Screens/AppointmentDetailsScreen';
+import ProfileScreen from './src/Screens/ProfileScreen';
 import { ThemeProvider } from './src/Context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PoppinsFonts } from './src/Config/Fonts';
@@ -116,6 +117,13 @@ function App() {
                 <Stack.Screen 
                   name="AppointmentDetails" 
                   component={AppointmentDetailsScreen}
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen 
+                  name="Profile" 
+                  component={ProfileScreen}
                   options={{
                     headerShown: false,
                   }}

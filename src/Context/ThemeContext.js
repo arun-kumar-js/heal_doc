@@ -100,6 +100,12 @@ export const ThemeProvider = ({ children }) => {
       
       // Profile image placeholder
       profilePlaceholder: isDarkMode ? '#404040' : '#E8F4FD',
+      
+      // Card colors for dashboard stats
+      cardPrimary: isDarkMode ? '#2D4A6B' : '#4A90E2',      // Blue card - Total Patients
+      cardSecondary: isDarkMode ? '#6B2D4A' : '#FF6B8A',    // Pink card - Pending Patients
+      cardText: '#FFFFFF',                                  // White text on cards
+      cardTextSecondary: isDarkMode ? '#E0E0E0' : '#F0F0F0', // Secondary text on cards
     },
     spacing: {
       xs: 4,

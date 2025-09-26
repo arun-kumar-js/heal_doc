@@ -85,6 +85,8 @@ android {
         versionCode 1
         versionName "1.0"
     }
+    
+    
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -118,5 +120,4 @@ dependencies {
     }
 }
 
-// Vector Icons Configuration
-apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+// Vector Icons Configuration - handled by react-native-asset

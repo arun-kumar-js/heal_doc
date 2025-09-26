@@ -15,7 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,

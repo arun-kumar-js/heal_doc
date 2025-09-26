@@ -17,7 +17,7 @@ import {
 } from 'react-native-responsive-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useTheme } from '../Context/ThemeContext';
 import { PoppinsFonts } from '../Config/Fonts';
 
@@ -57,22 +57,23 @@ const AppointmentsScreen = ({ navigation }) => {
         doctor_id: doctorId
       };
       
-      console.log('📤 Appointments API Request Data:', requestData);
-      console.log('🌐 Appointments API URL:', `${API_BASE_URL}/doctor-appointments`);
+      console.log('📤 API Request Data:', requestData);
+      console.log('🌐 API URL:', `${API_BASE_URL}/doctor-dashboard`);
 
-      const response = await axios.get(`${API_BASE_URL}/doctor-appointments`, {
+      const response = await axios.get(`${API_BASE_URL}/doctor-dashboard`, {
         params: requestData
       });
 
-      console.log('📥 Appointments API Response:', response);
-      console.log('📊 Appointments Response Status:', response.status);
-      console.log('💾 Appointments Response Data:', response.data);
+      console.log('📥 API Response:', response);
+      console.log('📊 Response Status:', response.status);
+      console.log('💾 Response Data:', response.data);
 
       if (response.data && response.data.status) {
-        console.log('✅ Appointments API Response Status:', response.data.status);
-        console.log('📝 Appointments API Message:', response.data.message);
+        console.log('✅ API Response Status:', response.data.status);
+        console.log('📝 API Message:', response.data.message);
         console.log('📅 Appointments Data:', response.data.data);
         
+        // Get appointments from doctor-dashboard response
         const allAppointments = response.data.data?.appointments || [];
         console.log('📋 All Appointments:', allAppointments);
         
@@ -87,12 +88,12 @@ const AppointmentsScreen = ({ navigation }) => {
         setAppointments(sortedAppointments);
         setError(null);
       } else {
-        console.log('⚠️ Invalid appointments API response format');
+        console.log('⚠️ Invalid API response format');
         setError('Invalid response format');
       }
     } catch (err) {
       console.error('❌ Error fetching appointments data:', err);
-      console.error('❌ Appointments Error details:', {
+      console.error('❌ Error details:', {
         message: err.message,
         response: err.response?.data,
         status: err.response?.status,
@@ -166,7 +167,7 @@ const AppointmentsScreen = ({ navigation }) => {
                 'Accept': 'image/*',
               }
             }} 
-            style={[styles.patientImage, styles.patientImageActual]}
+            style={styles.patientImage}
             defaultSource={require('../Assets/Images/phone2.png')}
             onError={(error) => {
               console.log('❌ Patient profile image failed to load for:', appointment.patient?.name);
@@ -176,44 +177,42 @@ const AppointmentsScreen = ({ navigation }) => {
             }}
           />
         </View>
+        
         <View style={styles.patientInfo}>
-          <View style={styles.tokenTimeRow}>
+          <View style={styles.nameTokenRow}>
+            <Text style={[styles.patientName, { color: theme.colors.primary }]}>
+              {appointment.patient?.name || appointment.sub_patient?.name || 'Unknown Patient'}
+            </Text>
             <Text style={[styles.tokenNumber, { color: theme.colors.primary }]}>
-              {appointment.details?.token || appointment.token || 'N/A'}
-            </Text>
-            <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-              Time : {appointment.appointment_time || 'N/A'}
+              #{appointment.details?.token || appointment.token || 'N/A'}
             </Text>
           </View>
           
-          {/* Sub-patient details */}
-          {appointment.sub_patient && (
-            <>
-              <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-                Name : {appointment.sub_patient.name}
-              </Text>
-              <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-                Age : {appointment.sub_patient.age || 'N/A'}
-              </Text>
-            </>
-          )}
+          <Text style={[styles.patientDetail, { color: theme.colors.text }]}>
+            Age : <Text style={[styles.patientDetailBold, { color: theme.colors.text }]}>{appointment.patient?.age || appointment.sub_patient?.age || 'N/A'}</Text>
+          </Text>
           
-          {/* Details description */}
-          {appointment.details?.description && (
-            <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-              Description : {appointment.details.description}
-            </Text>
-          )}
+          <Text style={[styles.patientDetail, { color: theme.colors.text }]}>
+            Symptoms : <Text style={[styles.patientDetailBold, { color: theme.colors.text }]}>{appointment.details?.description || 'General Consultation'}</Text>
+          </Text>
+          
+          <Text style={[styles.patientDetail, { color: theme.colors.text }]}>
+            On : <Text style={[styles.patientDetailBold, { color: theme.colors.text }]}>{appointment.appointment_time || 'N/A'}</Text>
+          </Text>
+          
+          <View style={styles.statusContainer}>
+            <View style={[
+              styles.statusBadge,
+              { backgroundColor: appointment.status === 'completed' ? theme.colors.statusCompleted : 
+                               appointment.status === 'scheduled' ? theme.colors.statusScheduled : theme.colors.statusPending }
+            ]}>
+              <Text style={styles.statusText}>{appointment.status}</Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.appointmentStatusContainer}>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: appointment.status === 'completed' ? theme.colors.statusCompleted : 
-                             appointment.status === 'scheduled' ? theme.colors.statusScheduled : theme.colors.statusPending }
-          ]}>
-            <Text style={styles.statusText}>{appointment.status}</Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color="#4A90E2" />
+        
+        <View style={styles.arrowContainer}>
+          <Icon name="chevron-right" size={20} color={theme.colors.primary} />
         </View>
       </View>
     </TouchableOpacity>
@@ -230,11 +229,11 @@ const AppointmentsScreen = ({ navigation }) => {
           style={styles.header}
         >
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="arrow-back" size={24} color="#FFFFFF" />
+            <Icon name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.title}>Appointments</Text>
           <TouchableOpacity style={styles.menuButton}>
-            <Icon name="ellipsis-vertical" size={24} color="#FFFFFF" />
+            <Icon name="ellipsis-v" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </LinearGradient>
 
@@ -253,7 +252,7 @@ const AppointmentsScreen = ({ navigation }) => {
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
-            <Icon name="alert-circle-outline" size={40} color="#FF6B6B" />
+            <Icon name="exclamation-circle" size={40} color="#FF6B6B" />
             <Text style={[styles.errorText, { color: theme.colors.text }]}>
               {error}
             </Text>
@@ -274,7 +273,7 @@ const AppointmentsScreen = ({ navigation }) => {
           </ScrollView>
         ) : (
           <View style={styles.noAppointmentsContainer}>
-            <Icon name="calendar-outline" size={40} color="#CCCCCC" />
+            <Icon name="calendar-alt" size={40} color="#CCCCCC" />
             <Text style={[styles.noAppointmentsText, { color: theme.colors.text }]}>
               No {selectedFilter.toLowerCase()} appointments found
             </Text>
@@ -376,9 +375,9 @@ const styles = StyleSheet.create({
     paddingBottom: hp('2%'),
   },
   appointmentCard: {
-    marginHorizontal: wp('3%'),
+    marginHorizontal: wp('4%'),
     marginBottom: hp('2%'),
-    borderRadius: wp('4%'),
+    borderRadius: wp('3%'),
     padding: wp('4%'),
     shadowColor: '#000',
     shadowOffset: {
@@ -386,39 +385,64 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 3,
   },
   appointmentContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   patientImageContainer: {
-    marginRight: wp('3.7%'),
+    marginRight: wp('4%'),
   },
   patientImage: {
-    width: wp('19%'),
-    height: wp('26%'),
+    width: wp('25%'),
+    height: wp('30%'),
     borderRadius: wp('2%'),
-  },
-  patientImageActual: {
-    borderWidth: 2,
-    borderColor: '#E8F4FD',
   },
   patientInfo: {
     flex: 1,
+   // paddingVertical: hp('0.5%'),
   },
-  tokenTimeRow: {
+  nameTokenRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: hp('0.5%'),
-    marginBottom: hp('0.5%'),
+    marginBottom: hp('1%'),
   },
   patientName: {
-    fontSize: wp('4%'),
+    fontSize: wp('4.2%'),
     fontFamily: PoppinsFonts.Bold,
     flex: 1,
+  },
+  patientDetail: {
+    fontSize: wp('3.5%'),
+    fontFamily: PoppinsFonts.Regular,
+    marginBottom: hp('0.8%'),
+    lineHeight: wp('4.5%'),
+  },
+  patientDetailBold: {
+    fontFamily: PoppinsFonts.Bold,
+  },
+  arrowContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: wp('2%'),
+  },
+  statusContainer: {
+    marginTop: hp('1%'),
+    alignItems: 'flex-start',
+  },
+  statusBadge: {
+    paddingHorizontal: wp('3%'),
+    paddingVertical: hp('0.5%'),
+    borderRadius: wp('2%'),
+  },
+  statusText: {
+    fontSize: wp('3%'),
+    fontFamily: PoppinsFonts.Bold,
+    color: '#FFFFFF',
+    textTransform: 'capitalize',
   },
   tokenNumber: {
     fontSize: wp('4%'),

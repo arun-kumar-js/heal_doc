@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
@@ -122,7 +122,7 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
         style={styles.header}
       >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#FFFFFF" />
+              <Icon name="arrow-left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Appointments Details</Text>
         <View style={styles.placeholder} />
@@ -162,21 +162,6 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
               <Text style={[styles.patientInfo, { color: theme.colors.text }]}>
                 Contact : {appointment.patient?.phone_number || 'N/A'}
               </Text>
-              <Text style={[styles.patientInfo, { color: theme.colors.text }]}>
-                Blood Group : {appointment.patient?.blood_group || 'N/A'}
-              </Text>
-              <Text style={[styles.patientInfo, { color: theme.colors.text }]}>
-                Appointment Time : {appointment.appointment_time || 'N/A'}
-              </Text>
-              
-              <View style={styles.tokenContainer}>
-                <Text style={[styles.tokenLabel, { color: theme.colors.text }]}>Token No : </Text>
-                <View style={styles.tokenBadge}>
-                  <Text style={styles.tokenNumber}>
-                    {appointment.details?.token || appointment.id}
-                  </Text>
-                </View>
-              </View>
             </View>
           </View>
         </View>
@@ -199,6 +184,18 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
               <Text style={[styles.patientInfo, { color: theme.colors.text }]}>
                 Phone : {appointment.sub_patient.phone_number || 'N/A'}
               </Text>
+              <Text style={[styles.patientInfo, { color: theme.colors.text }]}>
+                Appointment Time : {appointment.appointment_time || 'N/A'}
+              </Text>
+              
+              <View style={styles.tokenContainer}>
+                <Text style={[styles.tokenLabel, { color: theme.colors.text }]}>Token No : </Text>
+                <View style={styles.tokenBadge}>
+                  <Text style={styles.tokenNumber}>
+                    {appointment.details?.token || appointment.id}
+                  </Text>
+                </View>
+              </View>
               <Text style={[styles.patientInfo, { color: theme.colors.text }]}>
                 Email : {appointment.sub_patient.email || 'N/A'}
               </Text>
@@ -249,7 +246,7 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
       {appointment.status === 'completed' && (
         <View style={[styles.buttonContainer, { backgroundColor: theme.colors.background }]}>
           <View style={[styles.completedStatusContainer, { backgroundColor: theme.colors.statusCompleted || '#4CAF50' }]}>
-            <Icon name="checkmark-circle" size={24} color="#FFFFFF" />
+              <Icon name="check-circle" size={24} color="#FFFFFF" />
             <Text style={styles.completedStatusText}>Appointment Completed</Text>
           </View>
         </View>

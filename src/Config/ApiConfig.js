@@ -7,6 +7,9 @@ export const API_CONFIG = {
   ENDPOINTS: {
     DOCTOR_DASHBOARD: '/doctor-dashboard',
     APPOINTMENT_UPDATE: '/appointment-update',
+    DOCTOR_EDIT: '/doctor-edit',
+    DOCTOR_UPDATE: '/doctor-update',
+    DOCTOR_INACTIVE: '/doctor-inactive',
   },
   
   // Request timeout in milliseconds

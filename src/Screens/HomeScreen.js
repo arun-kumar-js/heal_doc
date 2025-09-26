@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
@@ -23,8 +23,9 @@ import axios from 'axios';
 import { getDoctorId, setDoctorId } from '../Utils/StorageUtils';
 import { useTheme } from '../Context/ThemeContext';
 import { PoppinsFonts } from '../Config/Fonts';
+import { ApiService } from '../Utils/ApiService';
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   
@@ -49,65 +50,6 @@ const HomeScreen = ({ navigation }) => {
   };
   
 
-  // Function to fetch appointments data
-  const fetchAppointmentsData = async (doctorId) => {
-    try {
-      console.log('📅 Fetching appointments data...');
-      
-      const requestData = {
-        doctor_id: doctorId
-      };
-      
-      console.log('📤 Appointments API Request Data:', requestData);
-      console.log('🌐 Appointments API URL:', `${API_BASE_URL}/doctor-appointments`);
-
-      const response = await axios.get(`${API_BASE_URL}/doctor-appointments`, {
-        params: requestData
-      });
-
-      console.log('📥 Appointments API Response:', response);
-      console.log('📊 Appointments Response Status:', response.status);
-      console.log('💾 Appointments Response Data:', response.data);
-
-      if (response.data && response.data.status) {
-        console.log('✅ Appointments API Response Status:', response.data.status);
-        console.log('📝 Appointments API Message:', response.data.message);
-        console.log('📅 Appointments Data:', response.data.data);
-        
-        // Extract appointments array from the response
-        const allAppointments = response.data.data?.appointments || [];
-        console.log('📋 All Appointments:', allAppointments);
-        
-        // Filter only scheduled appointments (not completed)
-        const scheduledAppointments = allAppointments.filter(appointment => 
-          appointment.status === 'scheduled'
-        );
-        console.log('📅 Scheduled Appointments Only:', scheduledAppointments);
-        
-        // Sort appointments by time (earliest first)
-        const sortedAppointments = scheduledAppointments.sort((a, b) => {
-          const timeA = a.appointment_time || '00:00';
-          const timeB = b.appointment_time || '00:00';
-          return timeA.localeCompare(timeB);
-        });
-        console.log('⏰ Sorted Appointments by Time:', sortedAppointments);
-        
-        return sortedAppointments;
-      } else {
-        console.log('⚠️ Invalid appointments API response format');
-        return [];
-      }
-    } catch (err) {
-      console.error('❌ Error fetching appointments data:', err);
-      console.error('❌ Appointments Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        statusText: err.response?.statusText
-      });
-      return [];
-    }
-  };
 
   // Function to fetch dashboard data
   const fetchDashboardData = async () => {
@@ -115,21 +57,20 @@ const HomeScreen = ({ navigation }) => {
       setLoading(true);
       setError(null);
       
-      
-      // Get doctor_id from AsyncStorage using utility function
-      let doctorId = await getDoctorId();
-      console.log('🔍 Doctor ID from AsyncStorage:', doctorId);
+      // Get doctor_id from doctorInfo state (from API)
+      let doctorId = doctorInfo?.id;
+      console.log('🔍 Doctor ID from doctorInfo state:', doctorId);
       
       if (!doctorId) {
-        console.log('⚠️ Doctor ID not found, trying to load doctor info first...');
+        console.log('⚠️ Doctor ID not found in state, trying to load doctor info first...');
         await loadDoctorInfo();
         
-        // Try to get doctor ID again
-        doctorId = await getDoctorId();
-        console.log('🔍 Retry Doctor ID from AsyncStorage:', doctorId);
+        // Try to get doctor ID again from state
+        doctorId = doctorInfo?.id;
+        console.log('🔍 Retry Doctor ID from doctorInfo state:', doctorId);
         
         if (!doctorId) {
-          throw new Error('Doctor ID not found in local storage after retry');
+          throw new Error('Doctor ID not found in doctor info after retry');
         }
       }
 
@@ -157,14 +98,30 @@ const HomeScreen = ({ navigation }) => {
         console.log('📊 API Data:', response.data.data);
         
         if (response.data.data) {
-          // Fetch appointments data in parallel
-          const appointmentsData = await fetchAppointmentsData(doctorId);
+          // Get appointments directly from doctor-dashboard response
+          const allAppointments = response.data.data.appointments || [];
+          console.log('📋 All Appointments from doctor-dashboard:', allAppointments);
+          
+          // Filter only scheduled appointments (not completed)
+          const scheduledAppointments = allAppointments.filter(appointment => 
+            appointment.status === 'scheduled'
+          );
+          console.log('📅 Scheduled Appointments Only:', scheduledAppointments);
+          
+          // Sort appointments by time (earliest first)
+          const sortedAppointments = scheduledAppointments.sort((a, b) => {
+            const timeA = a.appointment_time || '00:00';
+            const timeB = b.appointment_time || '00:00';
+            return timeA.localeCompare(timeB);
+          });
+          console.log('⏰ Sorted Appointments by Time:', sortedAppointments);
           
           // Map API response to our expected format
           const mappedData = {
             total_patients_today: response.data.data.total_patients_today || 0,
             pending_patients: response.data.data.total_pending_patients_today || 0,
-            appointments: appointmentsData
+            completed_patients: response.data.data.total_completed_patients_today || 0,
+            appointments: sortedAppointments
           };
           
           console.log('🔄 Mapped Data:', mappedData);
@@ -211,38 +168,83 @@ const HomeScreen = ({ navigation }) => {
     const initializeData = async () => {
       // Load doctor info first
       await loadDoctorInfo();
-      // Then fetch dashboard data
-      await fetchDashboardData();
     };
     
     initializeData();
   }, []);
 
-  // Function to load doctor information from stored user data
+  // Fetch dashboard data when doctorInfo is available
+  useEffect(() => {
+    if (doctorInfo?.id) {
+      fetchDashboardData();
+    }
+  }, [doctorInfo]);
+
+  // Listen for navigation focus to refresh data when returning from ProfileScreen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('🔄 HomeScreen focused - refreshing data...');
+      const refreshData = async () => {
+        await loadDoctorInfo();
+        if (doctorInfo?.id) {
+          await fetchDashboardData();
+        }
+      };
+      refreshData();
+    });
+
+    return unsubscribe;
+  }, [navigation, doctorInfo]);
+
+  // Handle refresh parameter from ProfileScreen
+  useEffect(() => {
+    if (route?.params?.refresh) {
+      console.log('🔄 Refresh parameter received - refreshing all data...');
+      refreshAllData();
+      // Clear the refresh parameter
+      navigation.setParams({ refresh: false });
+    }
+  }, [route?.params?.refresh]);
+
+  // Function to load doctor information from API
   const loadDoctorInfo = async () => {
     try {
-      console.log('🔍 Loading Doctor Information from User Data...');
+      console.log('🔍 Loading Doctor Information from API...');
       
-      // Get user login data
+      // Get doctor ID from login response data
       const userLoginData = await AsyncStorage.getItem('userLoginData');
-      console.log('👤 User Login Data:', userLoginData);
+      console.log('🔍 Retrieved userLoginData:', userLoginData);
       
-      if (userLoginData) {
-        const parsedData = JSON.parse(userLoginData);
-        console.log('📊 Parsed User Login Data:', parsedData);
-        
-        if (parsedData.userData && parsedData.userData.data) {
-          const doctorData = parsedData.userData.data;
-          console.log('🩺 Doctor Data:', doctorData);
+      if (!userLoginData) {
+        throw new Error('Login data not found in storage');
+      }
+      
+      const parsedData = JSON.parse(userLoginData);
+      if (!parsedData.userData || !parsedData.userData.data || !parsedData.userData.data.id) {
+        throw new Error('Doctor ID not found in login data');
+      }
+      
+      const doctorId = parsedData.userData.data.id;
+      console.log('🔍 Retrieved doctor ID from login data:', doctorId);
+
+      // Call API to get doctor edit data
+      const response = await ApiService.getDoctorEditData(doctorId);
+      console.log('🔍 API Response:', JSON.stringify(response, null, 2));
+      
+      if (response.success) {
+        console.log('✅ API call successful');
+        if (response.data && response.data.status) {
+          const doctorData = response.data.data;
+          console.log('🩺 Doctor Data from API:', doctorData);
           
-          // Extract doctor information
+          // Extract doctor information (same structure as ProfileScreen)
           const doctorInfo = {
             id: doctorData.id,
             name: doctorData.name,
             email: doctorData.email,
             phone: doctorData.phone,
             profile_image: doctorData.profile_image,
-            specialization: doctorData.specialization_id,
+            specialization_id: doctorData.specialization_id,
             experience_years: doctorData.experience_years,
             qualification: doctorData.qualification,
             rating: doctorData.rating,
@@ -264,7 +266,7 @@ const HomeScreen = ({ navigation }) => {
           console.log('⭐ Rating:', doctorInfo.rating);
           console.log('📧 Email:', doctorInfo.email);
           console.log('📱 Phone:', doctorInfo.phone);
-          console.log('🏥 Specialization ID:', doctorInfo.specialization);
+          console.log('🏥 Specialization ID:', doctorInfo.specialization_id);
           console.log('📍 Address:', doctorInfo.address);
           console.log('🖼️ Profile Image:', doctorInfo.profile_image);
           console.log('🖼️ Full Image URL:', `${API_BASE_URL.replace('/api', '')}/${doctorInfo.profile_image}`);
@@ -274,15 +276,18 @@ const HomeScreen = ({ navigation }) => {
           await setDoctorId(doctorData.id.toString());
           console.log('💾 Doctor ID saved:', doctorData.id.toString());
           
+          console.log('✅ Doctor information loaded successfully from API');
         } else {
-          console.log('⚠️ No user data found in userLoginData');
+          console.log('❌ API response data.status is false:', response.data);
+          throw new Error(response.data?.message || 'API returned status false');
         }
       } else {
-        console.log('⚠️ No userLoginData found in storage');
+        console.log('❌ API call failed:', response.error);
+        throw new Error(response.error || 'Failed to load doctor information');
       }
-      
     } catch (error) {
       console.error('❌ Error loading doctor info:', error);
+      setError(error.message);
     }
   };
 
@@ -291,15 +296,28 @@ const HomeScreen = ({ navigation }) => {
     setRefreshing(true);
     try {
       console.log('🔄 Refreshing data...');
-      await Promise.all([
-        fetchDashboardData(),
-        fetchAppointmentsData()
-      ]);
+      // Load doctor info first, then fetch dashboard data
+      await loadDoctorInfo();
+      await fetchDashboardData();
       console.log('✅ Data refreshed successfully');
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  // General refresh function that can be called from anywhere
+  const refreshAllData = async () => {
+    try {
+      console.log('🔄 Refreshing all data...');
+      await loadDoctorInfo();
+      if (doctorInfo?.id) {
+        await fetchDashboardData();
+      }
+      console.log('✅ All data refreshed successfully');
+    } catch (error) {
+      console.error('❌ Error refreshing all data:', error);
     }
   };
 
@@ -349,7 +367,7 @@ const HomeScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.errorContainer}>
-          <Icon name="alert-circle" size={60} color="#FF6B8A" />
+              <Icon name="exclamation-circle" size={60} color="#FF6B8A" />
           <Text style={styles.errorText}>Failed to load dashboard</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchDashboardData}>
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -405,7 +423,7 @@ const HomeScreen = ({ navigation }) => {
                 />
               ) : (
               <View style={[styles.profileImage, styles.profilePlaceholder]}>
-                <Icon name="person" size={40} color="#4A90E2" />
+                <Icon name="user" size={40} color="#4A90E2" />
               </View>
               )}
             </View>
@@ -421,7 +439,7 @@ const HomeScreen = ({ navigation }) => {
               )}
               {doctorInfo?.rating && (
                 <View style={styles.ratingContainer}>
-                  <Icon name="star" size={12} color="#FFD700" />
+                <Text style={styles.ratingText}>Rating: ⭐️</Text>
                   <Text style={styles.ratingText}>
                     {doctorInfo.rating}/5
                   </Text>
@@ -436,20 +454,26 @@ const HomeScreen = ({ navigation }) => {
         {/* Statistics Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <View style={[styles.statCardInner, styles.totalPatientsCard]}>
-              <Text style={[styles.statNumber, { color: theme.colors.text }]}>
+            <View style={[
+              styles.statCardInner, 
+              { backgroundColor: theme.colors.cardPrimary }
+            ]}>
+              <Text style={[styles.statNumber, { color: theme.colors.cardText }]}>
                 {dashboardData?.total_patients_today || 0}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Total Patients Today</Text>
+              <Text style={[styles.statLabel, { color: theme.colors.cardTextSecondary }]}>Total Patients Today</Text>
             </View>
           </View>
           
           <View style={styles.statCard}>
-            <View style={[styles.statCardInner, styles.pendingPatientsCard]}>
-              <Text style={[styles.pendingNumber, { color: theme.colors.text }]}>
+            <View style={[
+              styles.statCardInner, 
+              { backgroundColor: theme.colors.cardSecondary }
+            ]}>
+              <Text style={[styles.pendingNumber, { color: theme.colors.cardText }]}>
                 {dashboardData?.pending_patients || 0}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Pending Patients</Text>
+              <Text style={[styles.statLabel, { color: theme.colors.cardTextSecondary }]}>Pending Patients</Text>
             </View>
           </View>
         </View>
@@ -481,7 +505,7 @@ const HomeScreen = ({ navigation }) => {
                       'Accept': 'image/*',
                     }
                   }} 
-                  style={[styles.patientImage, styles.patientImageActual]}
+                  style={styles.patientImage}
                   defaultSource={require('../Assets/Images/phone2.png')}
                   onError={(error) => {
                     console.log('❌ Patient profile image failed to load for:', appointment.patient?.name);
@@ -491,53 +515,49 @@ const HomeScreen = ({ navigation }) => {
                   }}
                 />
               </View>
+              
               <View style={styles.patientInfo}>
-                <View style={styles.tokenTimeRow}>
-                  <Text style={[styles.tokenNumber, { color: theme.colors.primary }]}>
-                    {appointment.details?.token || appointment.token || 'N/A'}
+                <View style={styles.nameTokenRow}>
+                  <Text style={[styles.patientName, { color: theme.colors.primary }]}>
+                    {appointment.patient?.name || appointment.sub_patient?.name || 'Unknown Patient'}
                   </Text>
-                  <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-                    Time : {appointment.appointment_time || 'N/A'}
+                  <Text style={[styles.tokenNumber, { color: theme.colors.primary }]}>
+                    #{appointment.details?.token || appointment.token || 'N/A'}
                   </Text>
                 </View>
-              
-              {/* Sub-patient details */}
-                    {appointment.sub_patient && (
-                      <>
-                      
-                        <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-                          Name : {appointment.sub_patient.name}
-                        </Text>
-                        <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-                          Age : {appointment.sub_patient.age || 'N/A'}
-                        </Text>
-                        
-                      </>
-                    )}
-                    
-                    {/* Details description */}
-                    {appointment.details?.description && (
-                      <Text style={[styles.patientDetail, { color: theme.colors.textSecondary }]}>
-                        Description : {appointment.details.description}
-                      </Text>
-                    )}
+                
+                <Text style={[styles.patientDetail, { color: theme.colors.text }]}>
+                  Age : <Text style={[styles.patientDetailBold, { color: theme.colors.text }]}>{appointment.patient?.age || appointment.sub_patient?.age || 'N/A'}</Text>
+                </Text>
+                
+                <Text style={[styles.patientDetail, { color: theme.colors.text }]}>
+                  Symptoms : <Text style={[styles.patientDetailBold, { color: theme.colors.text }]}>{appointment.details?.description || 'General Consultation'}</Text>
+                </Text>
+                
+                <Text style={[styles.patientDetail, { color: theme.colors.text }]}>
+                  On : <Text style={[styles.patientDetailBold, { color: theme.colors.text }]}>{appointment.appointment_time || 'N/A'}</Text>
+                </Text>
+                
+                <View style={styles.statusContainer}>
+                  <View style={[
+                    styles.statusBadge,
+                    { backgroundColor: appointment.status === 'completed' ? theme.colors.statusCompleted : 
+                                     appointment.status === 'scheduled' ? theme.colors.statusScheduled : theme.colors.statusPending }
+                  ]}>
+                    <Text style={styles.statusText}>{appointment.status}</Text>
                   </View>
-                  <View style={styles.appointmentStatusContainer}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: appointment.status === 'completed' ? theme.colors.statusCompleted : 
-                                       appointment.status === 'scheduled' ? theme.colors.statusScheduled : theme.colors.statusPending }
-                    ]}>
-                      <Text style={styles.statusText}>{appointment.status}</Text>
+                </View>
               </View>
-              <Icon name="chevron-forward" size={20} color="#4A90E2" />
+              
+              <View style={styles.arrowContainer}>
+                <Icon name="chevron-right" size={20} color={theme.colors.primary} />
+              </View>
             </View>
-          </View>
               </TouchableOpacity>
             ))
           ) : (
             <View style={styles.noAppointmentsContainer}>
-              <Icon name="calendar-outline" size={40} color="#CCCCCC" />
+              <Icon name="calendar-alt" size={40} color="#CCCCCC" />
               <Text style={styles.noAppointmentsText}>No appointments for today</Text>
             </View>
           )}
@@ -574,6 +594,11 @@ const styles = StyleSheet.create({
     borderRadius: wp('12.5%'),
     borderWidth: 3,
     borderColor: '#E8F4FD',
+  },
+  profilePlaceholder: {
+    backgroundColor: '#E8F4FD',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   greetingSection: {
     flex: 1,
@@ -630,16 +655,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  totalPatientsCard: {
-    backgroundColor: '#4A90E2',
-  },
-  pendingPatientsCard: {
-    backgroundColor: '#FF6B8A',
-  },
   statNumber: {
     fontSize: wp('10%'),
     fontFamily: PoppinsFonts.Bold,
-    color: '#FFFFFF',
     marginBottom: hp('0.6%'),
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -648,7 +666,6 @@ const styles = StyleSheet.create({
   pendingNumber: {
     fontSize: wp('10%'),
     fontFamily: PoppinsFonts.Bold,
-    color: '#FFFFFF',
     marginBottom: hp('0.6%'),
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -657,7 +674,6 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: wp('3.8%'),
     fontFamily: PoppinsFonts.SemiBold,
-    color: '#FFFFFF',
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -683,10 +699,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   appointmentCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: wp('3.7%'),
-    padding: wp('3.7%'),
-    marginBottom: hp('1.8%'),
+    marginHorizontal: wp('4%'),
+    marginBottom: hp('2%'),
+    borderRadius: wp('3%'),
+    padding: wp('4%'),
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -695,44 +711,71 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
   },
   appointmentContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  appointmentStatusContainer: {
+  patientImageContainer: {
+    marginRight: wp('4%'),
+  },
+  patientImage: {
+    width: wp('25%'),
+    height: wp('30%'),
+    borderRadius: wp('2%'),
+  },
+  patientInfo: {
+    flex: 1,
+  },
+  nameTokenRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: wp('2%'),
+    justifyContent: 'space-between',
+    marginBottom: hp('1%'),
+  },
+  patientName: {
+    fontSize: wp('4.2%'),
+    fontFamily: PoppinsFonts.Bold,
+    flex: 1,
+  },
+  patientDetail: {
+    fontSize: wp('3.5%'),
+    fontFamily: PoppinsFonts.Regular,
+    marginBottom: hp('0.8%'),
+    lineHeight: wp('4.5%'),
+  },
+  patientDetailBold: {
+    fontFamily: PoppinsFonts.Bold,
+  },
+  arrowContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: wp('2%'),
+  },
+  statusContainer: {
+    marginTop: hp('1%'),
+    alignItems: 'flex-start',
   },
   statusBadge: {
     paddingHorizontal: wp('3%'),
     paddingVertical: hp('0.5%'),
     borderRadius: wp('2%'),
-    marginRight: wp('2%'),
   },
   statusText: {
-    color: '#FFFFFF',
-    fontSize: wp('2.5%'),
+    fontSize: wp('3%'),
     fontFamily: PoppinsFonts.Bold,
+    color: '#FFFFFF',
     textTransform: 'capitalize',
   },
-  patientImageContainer: {
-    marginRight: wp('3.7%'),
-  },
-  patientImage: {
-    width: wp('19%'),
-    height: wp('26%'),
+  tokenNumber: {
+    fontSize: wp('4%'),
+    fontFamily: PoppinsFonts.Bold,
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: wp('2%'),
+    paddingVertical: hp('0.3%'),
     borderRadius: wp('2%'),
-  },
-  patientImageActual: {
-    borderWidth: 2,
-    borderColor: '#E8F4FD',
-  },
-  patientInfo: {
-    flex: 1,
+    textAlign: 'center',
+    minWidth: wp('8%'),
   },
   patientNameRow: {
     flexDirection: 'row',
